@@ -11,13 +11,13 @@ impl CandidateActor {
         mut self,
         inbox: &mut MessageQueue,
         outbox: &mut MessageQueue,
-        _rng: &mut RngCore,
+        rng: &mut RngCore,
     ) -> Result<Actor, Error> {
         self.candidate.time += 1;
 
         while let Some(in_msg) = inbox.pop_front() {
             if let Some(next_actor) = self.process_msg(in_msg, outbox)? {
-                return Ok(next_actor);
+                return next_actor.act(inbox, outbox, rng);
             }
         }
 
@@ -33,16 +33,15 @@ impl CandidateActor {
             nodes: self.candidate.nodes,
             last_sent_heartbeat: 0,
         };
-        // FIXME: Heartbeat immediately
         println!(
-            "[time {}] [id {}] [term={}] candidate became leader with {}/{} votes",
+            "[time {}] [id {}] [term={}] candidate elected with {}/{} votes",
             leader.time,
             leader.id,
             leader.term,
             number_of_votes,
             leader.nodes.len()
         );
-        Ok(Actor::Leader(LeaderActor { leader }))
+        Actor::Leader(LeaderActor { leader }).act(inbox, outbox, rng)
     }
 
     fn elected(&self) -> bool {
@@ -57,7 +56,11 @@ impl CandidateActor {
     ) -> Result<Option<Actor>, Error> {
         match msg {
             Message::Heartbeat(heartbeat_msg) => {
-                // Become a follower of any leader that appears
+                if heartbeat_msg.term < self.candidate.term {
+                    return Ok(None);
+                }
+
+                // Become a follower of a newer leader that appears
                 let follower = Follower {
                     id: self.candidate.id,
                     time: self.candidate.time,
@@ -67,71 +70,42 @@ impl CandidateActor {
                     voted: None,
                 };
                 println!(
-                    "[time {}] [id {}] [term {}] candidate became follower of leader {}",
+                    "[time {}] [id {}] [term {}] candidate followed leader {}",
                     follower.time, follower.id, follower.term, heartbeat_msg.from,
                 );
                 Ok(Some(Actor::Follower(FollowerActor { follower })))
             }
             Message::Candidacy(candidacy_msg) => {
-                // Disregard earlier-term candidates
-                if candidacy_msg.term < self.candidate.term {
+                if candidacy_msg.term <= self.candidate.term {
                     return Ok(None);
                 }
 
                 // Vote for newer-term candidates and become a follower
-                if candidacy_msg.term > self.candidate.term {
-                    let follower = Follower {
-                        id: self.candidate.id,
-                        time: self.candidate.time,
-                        term: candidacy_msg.term,
-                        nodes: self.candidate.nodes.clone(),
-                        last_recv_heartbeat: 0,
-                        voted: Some(self.candidate.id),
-                    };
-                    outbox.push_back(Message::Vote(VoteMessage {
-                        term: follower.term,
-                        candidate: candidacy_msg.candidate,
-                        elector: follower.id,
-                    }));
-                    println!(
-                        "[time {}] [id {}] [term {}] candidate became follower to vote for later-term {} candidate {}",
-                        follower.time,
-                        follower.id,
-                        follower.term,
-                        candidacy_msg.term,
-                        candidacy_msg.candidate,
-                    );
-                    return Ok(Some(Actor::Follower(FollowerActor { follower })));
-                }
-
-                // Disregard same-term candidates
-                //println!(
-                //    "[time {}] [id {}] [term {}] candidate notified {} is a candidate for term {}",
-                //    self.candidate.time,
-                //    self.candidate.id,
-                //    self.candidate.term,
-                //    candidacy_msg.candidate,
-                //    candidacy_msg.term,
-                //);
-                Ok(None)
+                let follower = Follower {
+                    id: self.candidate.id,
+                    time: self.candidate.time,
+                    term: candidacy_msg.term,
+                    nodes: self.candidate.nodes.clone(),
+                    last_recv_heartbeat: 0,
+                    voted: Some(self.candidate.id),
+                };
+                outbox.push_back(Message::Vote(VoteMessage {
+                    term: follower.term,
+                    candidate: candidacy_msg.candidate,
+                    elector: follower.id,
+                }));
+                println!(
+                    "[time {}] [id {}] [term {}] candidate resigned for later-term candidate {}",
+                    follower.time, follower.id, follower.term, candidacy_msg.candidate,
+                );
+                Ok(Some(Actor::Follower(FollowerActor { follower })))
             }
             Message::Vote(vote_msg) => {
-                // Disregard earlier-term votes
-                if vote_msg.term < self.candidate.term {
-                    return Ok(None);
-                }
-
-                // Disregard later-term votes
-                // FIXME: Would mean we missed a new candidacy
-                if vote_msg.term > self.candidate.term {
-                    return Ok(None);
-                }
-
                 // Record votes for same-term candidates
-                if vote_msg.candidate == self.candidate.id {
+                if vote_msg.term == self.candidate.term && vote_msg.candidate == self.candidate.id {
                     self.candidate.votes += 1;
                     println!(
-                        "[time {}] [id {}] [term {}] candidate notified of vote from {}",
+                        "[time {}] [id {}] [term {}] candidate received vote from {}",
                         self.candidate.time,
                         self.candidate.id,
                         self.candidate.term,

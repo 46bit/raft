@@ -51,10 +51,13 @@ impl FollowerActor {
     fn process_msg(&mut self, msg: Message, outbox: &mut MessageQueue) -> Result<(), Error> {
         match msg {
             Message::Heartbeat(heartbeat_msg) => {
+                if heartbeat_msg.term < self.follower.term {
+                    return Ok(());
+                }
                 self.follower.last_recv_heartbeat = self.follower.time;
                 self.follower.nodes = heartbeat_msg.nodes;
                 println!(
-                    "[time {}] [id {}] [term {}] follower got heartbeat from {}",
+                    "[time {}] [id {}] [term {}] follower heartbeated by leader {}",
                     self.follower.time, self.follower.id, self.follower.term, heartbeat_msg.from,
                 );
                 Ok(())
@@ -87,18 +90,9 @@ impl FollowerActor {
                 Ok(())
             }
             Message::Vote(vote_msg) => {
-                if vote_msg.term < self.follower.term {
-                    return Ok(());
+                if vote_msg.term > self.follower.term {
+                    self.follower.term = vote_msg.term;
                 }
-                self.follower.term = vote_msg.term;
-                //println!(
-                //    "[time {}] [id {}] [term {}] follower notified {} voted for {}",
-                //    self.follower.time,
-                //    self.follower.id,
-                //    self.follower.term,
-                //    vote_msg.elector,
-                //    vote_msg.candidate,
-                //);
                 Ok(())
             }
         }
