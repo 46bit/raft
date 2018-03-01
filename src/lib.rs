@@ -1,17 +1,13 @@
-#[cfg(test)]
-extern crate quickcheck;
+#![feature(box_syntax)]
+
 extern crate rand;
 
 mod node;
-mod message;
-mod actor;
-
 pub use node::*;
+mod message;
 pub use message::*;
-pub use actor::*;
-
-#[cfg(test)]
-use quickcheck::{Arbitrary, Gen};
+mod actors;
+pub use actors::*;
 
 pub type Id = u64;
 

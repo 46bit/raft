@@ -4,5 +4,4 @@ version = "0.1.0"
 authors = ["Michael Mokrysz <hi@46b.it>"]
 
 [dependencies]
-quickcheck = "0.6"
-rand = "0.4.1"
+rand = { git = "https://github.com/rust-lang-nursery/rand", rev = "7409873031deb4b79ad546908c1640b7167289f4" }

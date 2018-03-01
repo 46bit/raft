@@ -1,14 +1,7 @@
 use super::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Node {
-    Follower(FollowerNode),
-    Candidate(CandidateNode),
-    Leader(LeaderNode),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FollowerNode {
+pub struct Follower {
     pub id: Id,
     pub time: Time,
     pub term: Term,
@@ -18,7 +11,7 @@ pub struct FollowerNode {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CandidateNode {
+pub struct Candidate {
     pub id: Id,
     pub time: Time,
     pub term: Term,
@@ -27,7 +20,7 @@ pub struct CandidateNode {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LeaderNode {
+pub struct Leader {
     pub id: Id,
     pub time: Time,
     pub term: Term,
