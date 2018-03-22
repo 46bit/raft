@@ -7,27 +7,42 @@ pub type MessageQueue = VecDeque<Message>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Message {
-    Heartbeat(HeartbeatMessage),
-    Candidacy(CandidacyMessage),
-    Vote(VoteMessage),
+    Heartbeat(Id, Heartbeat),
+    Candidacy(Id, Candidacy),
+    Vote(Id, Vote),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HeartbeatMessage {
+pub struct Heartbeat {
     pub term: Term,
-    pub from: Id,
     pub nodes: Vec<Id>,
 }
 
+impl Heartbeat {
+    pub fn into_message(self, node_id: Id) -> Message {
+        Message::Heartbeat(node_id, self)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CandidacyMessage {
+pub struct Candidacy {
+    pub term: Term,
+}
+
+impl Candidacy {
+    pub fn into_message(self, node_id: Id) -> Message {
+        Message::Candidacy(node_id, self)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Vote {
     pub term: Term,
     pub candidate: Id,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct VoteMessage {
-    pub term: Term,
-    pub candidate: Id,
-    pub elector: Id,
+impl Vote {
+    pub fn into_message(self, node_id: Id) -> Message {
+        Message::Vote(node_id, self)
+    }
 }

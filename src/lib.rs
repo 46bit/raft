@@ -4,8 +4,8 @@ extern crate rand;
 
 mod node;
 pub use node::*;
-mod message;
-pub use message::*;
+pub mod message;
+pub use message::{Message, MessageQueue};
 mod actors;
 pub use actors::*;
 

@@ -1,101 +1,60 @@
 use super::*;
 use rand::RngCore;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LeaderActor {
-    pub leader: Leader,
+pub fn poll(
+    node: &mut Node,
+    mut leader: Leader,
+    _: &mut RngCore,
+) -> Result<(Role, Vec<Message>), Error> {
+    let time_for_heartbeat = node.time >= leader.last_sent_heartbeat + HEARTBEAT_PERIOD;
+    if time_for_heartbeat {
+        leader.last_sent_heartbeat = node.time;
+        println!("{} leader sent heartbeat", node.log_prefix(),);
+        let msg = message::Heartbeat {
+            term: node.term,
+            nodes: node.peers.clone(),
+        }.into_message(node.id);
+        Ok((leader.into_role(), vec![msg]))
+    } else {
+        Ok((leader.into_role(), vec![]))
+    }
 }
 
-impl LeaderActor {
-    pub fn act(
-        mut self,
-        inbox: &mut MessageQueue,
-        mut outbox: &mut MessageQueue,
-        rng: &mut RngCore,
-    ) -> Result<Actor, Error> {
-        self.leader.time += 1;
-        while let Some(in_msg) = inbox.pop_front() {
-            if let Some(next_actor) = self.process_msg(in_msg, outbox)? {
-                return next_actor.act(inbox, outbox, rng);
-            }
-        }
-        let time_for_heartbeat = self.leader.time >= self.leader.last_sent_heartbeat + HEARTBEAT_PERIOD;
-        if time_for_heartbeat {
-            self.heartbeat(&mut outbox);
-        }
-        Ok(Actor::Leader(self))
-    }
-
-    fn process_msg(
-        &mut self,
-        msg: Message,
-        mut outbox: &mut MessageQueue,
-    ) -> Result<Option<Actor>, Error> {
-        if let Message::Heartbeat(heartbeat_msg) = msg {
-            let other_leader_is_later_term = heartbeat_msg.term > self.leader.term;
+pub fn process_msg(
+    msg: Message,
+    node: &mut Node,
+    mut leader: Leader,
+    _: &mut RngCore,
+) -> Result<(Role, Vec<Message>), Error> {
+    use Message::*;
+    match msg {
+        Heartbeat(other_leader_id, heartbeat) => {
+            let other_leader_is_later_term = heartbeat.term > node.term;
             if other_leader_is_later_term {
-                return Ok(Some(self.clone().adopt_later_term_leader(heartbeat_msg)));
+                println!(
+                    "{} leader followed later-term leader {}",
+                    node.log_prefix(),
+                    other_leader_id,
+                );
+                let follower = Follower {
+                    last_recv_heartbeat: node.time,
+                    voted: None,
+                };
+                return Ok((follower.into_role(), vec![]));
             }
-            let leader_is_duplicate = heartbeat_msg.term == self.leader.term;
+            let leader_is_duplicate = heartbeat.term == node.term;
             if leader_is_duplicate {
-                return Ok(Some(
-                    self.clone()
-                        .replace_duplicate_term_leader(heartbeat_msg, &mut outbox),
-                ));
+                println!(
+                    "{} leader became next-term candidate because of same-term leader {}",
+                    node.log_prefix(),
+                    other_leader_id,
+                );
+                let candidate = Candidate { votes: 1 };
+                let msg = message::Candidacy { term: node.term }.into_message(node.id);
+                return Ok((candidate.into_role(), vec![msg]));
             }
+            Ok((leader.into_role(), vec![]))
         }
-        Ok(None)
-    }
-
-    fn heartbeat(&mut self, outbox: &mut MessageQueue) {
-        self.leader.last_sent_heartbeat = self.leader.time;
-        outbox.push_back(Message::Heartbeat(HeartbeatMessage {
-            term: self.leader.term,
-            from: self.leader.id,
-            nodes: self.leader.nodes.clone(),
-        }));
-        println!(
-            "[time {}] [id {}] [term {}] leader sent heartbeat",
-            self.leader.time, self.leader.id, self.leader.term,
-        );
-    }
-
-    fn adopt_later_term_leader(self, heartbeat_msg: HeartbeatMessage) -> Actor {
-        let follower = Follower {
-            id: self.leader.id,
-            time: self.leader.time,
-            term: heartbeat_msg.term,
-            nodes: heartbeat_msg.nodes,
-            last_recv_heartbeat: self.leader.time,
-            voted: None,
-        };
-        println!(
-            "[time {}] [id {}] [term {}] leader followed later-term leader {}",
-            follower.time, follower.id, follower.term, heartbeat_msg.from,
-        );
-        Actor::Follower(FollowerActor { follower })
-    }
-
-    fn replace_duplicate_term_leader(
-        self,
-        heartbeat_msg: HeartbeatMessage,
-        outbox: &mut MessageQueue,
-    ) -> Actor {
-        let candidate = Candidate {
-            id: self.leader.id,
-            time: self.leader.time,
-            term: self.leader.term + 1,
-            nodes: self.leader.nodes,
-            votes: 1,
-        };
-        outbox.push_back(Message::Candidacy(CandidacyMessage {
-            term: candidate.term,
-            candidate: candidate.id,
-        }));
-        println!(
-            "[time {}] [id {}] [term {}] leader became next-term candidate because of same-term leader {}",
-            candidate.time, candidate.id, candidate.term, heartbeat_msg.from,
-        );
-        Actor::Candidate(CandidateActor { candidate })
+        Candidacy(_, _) | Vote(_, _) => Ok((leader.into_role(), vec![])),
     }
 }

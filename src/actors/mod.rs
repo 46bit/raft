@@ -1,9 +1,6 @@
-mod follower;
-pub use self::follower::*;
-mod candidate;
-pub use self::candidate::*;
-mod leader;
-pub use self::leader::*;
+pub mod follower;
+pub mod candidate;
+pub mod leader;
 
 use super::*;
 use rand::RngCore;
@@ -17,23 +14,47 @@ pub const HEARTBEAT_PERIOD: Time = 15;
 pub enum Error {}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Actor {
-    Follower(FollowerActor),
-    Candidate(CandidateActor),
-    Leader(LeaderActor),
+pub struct Actor {
+    pub node: Node,
+    pub role: Role,
+    pub inbox: MessageQueue,
+    pub outbox: MessageQueue,
 }
 
 impl Actor {
-    pub fn act(
-        self,
-        inbox: &mut MessageQueue,
-        outbox: &mut MessageQueue,
-        rng: &mut RngCore,
-    ) -> Result<Actor, Error> {
-        match self {
-            Actor::Follower(follower_actor) => follower_actor.act(inbox, outbox, rng),
-            Actor::Candidate(candidate_actor) => candidate_actor.act(inbox, outbox, rng),
-            Actor::Leader(leader_actor) => leader_actor.act(inbox, outbox, rng),
+    pub fn new(node: Node, role: Role) -> Actor {
+        Actor {
+            node: node,
+            role: role,
+            inbox: MessageQueue::new(),
+            outbox: MessageQueue::new(),
         }
+    }
+
+    pub fn poll(&mut self, rng: &mut RngCore) -> Result<(), Error> {
+        self.node.time += 1;
+
+        while let Some(in_msg) = self.inbox.pop_front() {
+            let (new_role, out_msgs) = match self.role.clone() {
+                Role::Follower(follower_) => {
+                    follower::process_msg(in_msg, &mut self.node, follower_, rng)
+                }
+                Role::Candidate(candidate_) => {
+                    candidate::process_msg(in_msg, &mut self.node, candidate_, rng)
+                }
+                Role::Leader(leader_) => leader::process_msg(in_msg, &mut self.node, leader_, rng),
+            }?;
+            self.role = new_role;
+            self.outbox.extend(out_msgs.into_iter());
+        }
+
+        let (new_role, out_msgs) = match self.role.clone() {
+            Role::Follower(follower_) => follower::poll(&mut self.node, follower_, rng),
+            Role::Candidate(candidate_) => candidate::poll(&mut self.node, candidate_, rng),
+            Role::Leader(leader_) => leader::poll(&mut self.node, leader_, rng),
+        }?;
+        self.role = new_role;
+        self.outbox.extend(out_msgs.into_iter());
+        Ok(())
     }
 }
