@@ -16,11 +16,11 @@ fn id(i: u64) -> Id {
 fn new_actor(id: Id, peers: HashSet<Id>) -> Actor {
     Actor::new(
         Node {
-            id: id,
+            id,
             time: 0,
             last_activity: 0,
             term: 0,
-            peers: peers,
+            peers,
         },
         Idler { vote: None }.into(),
     )
@@ -36,17 +36,17 @@ fn main() {
     assert_eq!(actor_count, actors.len() as u64);
     for k in 0.. {
         let actor_count = actors.len();
-        for i in 0..actor_count {
-            actors[i].poll(&mut rng).unwrap();
+        for actor in &mut actors {
+            actor.poll(&mut rng).unwrap();
         }
         for i in 0..actor_count {
             let out_msgs: Vec<_> = actors[i].outbox.drain(..).collect();
             for out_msg in out_msgs {
-                for j in 0..actor_count {
+                for (j, actor) in actors.iter_mut().enumerate() {
                     if i == j {
                         continue;
                     }
-                    actors[j].inbox.push(out_msg.clone());
+                    actor.inbox.push(out_msg.clone());
                 }
             }
         }

@@ -18,7 +18,7 @@ pub fn poll_election_timeout(
         return Some((candidate.into(), vec![out_msg]));
     }
 
-    return None;
+    None
 }
 
 pub fn vote_for_later_candidate(

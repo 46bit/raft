@@ -28,8 +28,8 @@ pub struct Actor {
 impl Actor {
     pub fn new(node: Node, role: Role) -> Actor {
         Actor {
-            node: node,
-            role: role,
+            node,
+            role,
             inbox: vec![],
             outbox: vec![],
         }
