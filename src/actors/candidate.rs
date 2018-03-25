@@ -4,8 +4,8 @@ use rand::RngCore;
 pub fn poll(node: &mut Node, candidate: Candidate, _: &mut RngCore) -> (Role, Vec<Message>) {
     let necessary_votes = (node.peers.len() / 2) as u64;
     if candidate.votes > necessary_votes {
-        let leader = Leader {};
         node.last_activity = node.time;
+        let leader = Leader {};
         let out_msg = message::Heartbeat {
             leader_id: node.id.clone(),
             term: node.term,
@@ -27,6 +27,8 @@ pub fn process_msg(
     match msg {
         Heartbeat(heartbeat) => {
             if heartbeat.term >= node.term {
+                node.term = heartbeat.term;
+                node.last_activity = node.time;
                 let follower = Follower {
                     leader_id: heartbeat.leader_id,
                 };
@@ -36,9 +38,9 @@ pub fn process_msg(
             (candidate.into(), vec![])
         }
         Candidacy(candidacy) => {
-            let other_candidate_is_later_term = candidacy.term > node.term;
-            if other_candidate_is_later_term {
+            if candidacy.term > node.term {
                 node.term = candidacy.term;
+                node.last_activity = node.time;
                 let idler = Idler {
                     vote: Some(candidacy.candidate_id.clone()),
                 };
@@ -55,6 +57,7 @@ pub fn process_msg(
         Vote(vote) => {
             let was_voted_for = (vote.term, vote.candidate) == (node.term, node.id.clone());
             if was_voted_for {
+                // FIXME: Should the candidate consider a vote for itself as activity?
                 candidate.votes += 1;
             }
             (candidate.into(), vec![])

@@ -43,6 +43,7 @@ pub fn process_msg(
 
             if idler.vote.is_none() {
                 node.term = candidacy.term;
+                node.last_activity = node.time;
                 idler.vote = Some(candidacy.candidate_id.clone());
                 let out_msg = message::Vote {
                     voter_id: node.id.clone(),

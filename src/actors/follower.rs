@@ -5,6 +5,7 @@ pub fn poll(node: &mut Node, follower: Follower, mut rng: &mut RngCore) -> (Role
     let election_timeout = rng.gen_range(ELECTION_TIMEOUT, ELECTION_TIMEOUT * 2);
     if node.time > node.last_activity + election_timeout {
         node.term += 1;
+        node.last_activity = node.time;
         let candidate = Candidate { votes: 1 };
         let out_msg = message::Candidacy {
             candidate_id: node.id.clone(),
@@ -36,13 +37,13 @@ pub fn process_msg(
                 return (follower.into(), vec![]);
             }
 
-            if follower.leader_id == heartbeat.leader_id {
-                node.last_activity = node.time;
-                return (follower.into(), vec![]);
+            if follower.leader_id != heartbeat.leader_id {
+                let idler = Idler { vote: None };
+                return (idler.into(), vec![]);
             }
 
-            let idler = Idler { vote: None };
-            (idler.into(), vec![])
+            node.last_activity = node.time;
+            (follower.into(), vec![])
         }
         Candidacy(candidacy) => {
             if candidacy.term <= node.term {
@@ -50,6 +51,7 @@ pub fn process_msg(
             }
 
             node.term = candidacy.term;
+            node.last_activity = node.time;
             let idler = Idler {
                 vote: Some(candidacy.candidate_id.clone()),
             };

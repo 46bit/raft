@@ -26,6 +26,8 @@ pub fn process_msg(
     match msg {
         Heartbeat(heartbeat) => {
             if heartbeat.term > node.term {
+                node.term = heartbeat.term;
+                node.last_activity = node.time;
                 let follower = Follower {
                     leader_id: heartbeat.leader_id,
                 };
@@ -33,12 +35,8 @@ pub fn process_msg(
             }
 
             if heartbeat.term == node.term && node.id != heartbeat.leader_id {
-                let candidate = Candidate { votes: 1 };
-                let out_msg = message::Candidacy {
-                    candidate_id: node.id.clone(),
-                    term: node.term,
-                }.into();
-                return (candidate.into(), vec![out_msg]);
+                let idler = Idler { vote: None };
+                return (idler.into(), vec![]);
             }
 
             (leader.into(), vec![])
