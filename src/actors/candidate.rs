@@ -5,8 +5,12 @@ pub fn poll(node: &mut Node, candidate: Candidate, _: &mut RngCore) -> (Role, Ve
     let necessary_votes = (node.peers.len() / 2) as u64;
     if candidate.votes > necessary_votes {
         let leader = Leader {};
-        // FIXME: Send heartbeat (node.last_activity hasn't been reset)
-        return (leader.into(), vec![]);
+        node.last_activity = node.time;
+        let msg = message::Heartbeat {
+            term: node.term,
+            nodes: node.peers.clone(),
+        }.into_message(node.id.clone());
+        return (leader.into(), vec![msg]);
     }
 
     (candidate.into(), vec![])
