@@ -6,11 +6,12 @@ pub fn poll(node: &mut Node, candidate: Candidate, _: &mut RngCore) -> (Role, Ve
     if candidate.votes > necessary_votes {
         let leader = Leader {};
         node.last_activity = node.time;
-        let msg = message::Heartbeat {
+        let out_msg = message::Heartbeat {
+            leader_id: node.id.clone(),
             term: node.term,
             nodes: node.peers.clone(),
-        }.into_message(node.id.clone());
-        return (leader.into(), vec![msg]);
+        }.into();
+        return (leader.into(), vec![out_msg]);
     }
 
     (candidate.into(), vec![])
@@ -24,31 +25,34 @@ pub fn process_msg(
 ) -> (Role, Vec<Message>) {
     use Message::*;
     match msg {
-        Heartbeat(leader_id, heartbeat) => {
+        Heartbeat(heartbeat) => {
             if heartbeat.term >= node.term {
-                let follower = Follower { leader_id };
+                let follower = Follower {
+                    leader_id: heartbeat.leader_id,
+                };
                 return (follower.into(), vec![]);
             }
 
             (candidate.into(), vec![])
         }
-        Candidacy(other_candidate_id, candidacy) => {
+        Candidacy(candidacy) => {
             let other_candidate_is_later_term = candidacy.term > node.term;
             if other_candidate_is_later_term {
                 node.term = candidacy.term;
                 let idler = Idler {
-                    vote: Some(other_candidate_id.clone()),
+                    vote: Some(candidacy.candidate_id.clone()),
                 };
-                let msg = message::Vote {
+                let out_msg = message::Vote {
+                    voter_id: node.id.clone(),
                     term: candidacy.term,
-                    candidate: other_candidate_id,
-                }.into_message(node.id.clone());
-                return (idler.into(), vec![msg]);
+                    candidate: candidacy.candidate_id,
+                }.into();
+                return (idler.into(), vec![out_msg]);
             }
 
             (candidate.into(), vec![])
         }
-        Vote(_, vote) => {
+        Vote(vote) => {
             let was_voted_for = (vote.term, vote.candidate) == (node.term, node.id.clone());
             if was_voted_for {
                 candidate.votes += 1;

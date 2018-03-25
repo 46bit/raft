@@ -10,7 +10,7 @@ use std::time::Duration;
 use std::collections::HashSet;
 
 fn id(i: u64) -> Id {
-    format!("sim:{}", i)
+    format!("node.{}", i)
 }
 
 fn new_actor(id: Id, peers: HashSet<Id>) -> Actor {

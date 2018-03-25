@@ -3,42 +3,45 @@ use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Message {
-    Heartbeat(Id, Heartbeat),
-    Candidacy(Id, Candidacy),
-    Vote(Id, Vote),
+    Heartbeat(Heartbeat),
+    Candidacy(Candidacy),
+    Vote(Vote),
+}
+
+impl From<Heartbeat> for Message {
+    fn from(heartbeat: Heartbeat) -> Message {
+        Message::Heartbeat(heartbeat)
+    }
+}
+
+impl From<Candidacy> for Message {
+    fn from(candidacy: Candidacy) -> Message {
+        Message::Candidacy(candidacy)
+    }
+}
+
+impl From<Vote> for Message {
+    fn from(vote: Vote) -> Message {
+        Message::Vote(vote)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Heartbeat {
+    pub leader_id: Id,
     pub term: Term,
     pub nodes: HashSet<Id>,
 }
 
-impl Heartbeat {
-    pub fn into_message(self, node_id: Id) -> Message {
-        Message::Heartbeat(node_id, self)
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Candidacy {
+    pub candidate_id: Id,
     pub term: Term,
-}
-
-impl Candidacy {
-    pub fn into_message(self, node_id: Id) -> Message {
-        Message::Candidacy(node_id, self)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Vote {
+    pub voter_id: Id,
     pub term: Term,
     pub candidate: Id,
-}
-
-impl Vote {
-    pub fn into_message(self, node_id: Id) -> Message {
-        Message::Vote(node_id, self)
-    }
 }

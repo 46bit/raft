@@ -8,7 +8,10 @@ pub fn poll(node: &mut Node, idler: Idler, mut rng: &mut RngCore) -> (Role, Vec<
     } else {
         node.term += 1;
         let candidate = Candidate { votes: 1 };
-        let out_msg = message::Candidacy { term: node.term }.into_message(node.id.clone());
+        let out_msg = message::Candidacy {
+            candidate_id: node.id.clone(),
+            term: node.term,
+        }.into();
         (candidate.into(), vec![out_msg])
     }
 }
@@ -21,28 +24,31 @@ pub fn process_msg(
 ) -> (Role, Vec<Message>) {
     use Message::*;
     match in_msg {
-        Heartbeat(leader_id, heartbeat) => {
+        Heartbeat(heartbeat) => {
             if heartbeat.term < node.term {
                 return (idler.into(), vec![]);
             }
 
             node.term = heartbeat.term;
             node.last_activity = node.time;
-            let follower = Follower { leader_id };
+            let follower = Follower {
+                leader_id: heartbeat.leader_id,
+            };
             (follower.into(), vec![])
         }
-        Candidacy(candidate_id, candidacy) => {
+        Candidacy(candidacy) => {
             if candidacy.term < node.term {
                 return (idler.into(), vec![]);
             }
 
             if idler.vote.is_none() {
                 node.term = candidacy.term;
-                idler.vote = Some(candidate_id.clone());
+                idler.vote = Some(candidacy.candidate_id.clone());
                 let out_msg = message::Vote {
+                    voter_id: node.id.clone(),
                     term: node.term,
-                    candidate: candidate_id,
-                }.into_message(node.id.clone());
+                    candidate: candidacy.candidate_id,
+                }.into();
                 return (idler.into(), vec![out_msg]);
             }
 
