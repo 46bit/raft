@@ -3,6 +3,7 @@ use rand::RngCore;
 
 pub fn poll(node: &mut Node, idler: Idler, rng: &mut RngCore) -> (Role, Vec<Message>) {
     if let Some(result) = poll_election_timeout(node, rng) {
+        println!("{} IDLER became CANDIDATE", node.log_prefix());
         return result;
     }
 
@@ -12,7 +13,7 @@ pub fn poll(node: &mut Node, idler: Idler, rng: &mut RngCore) -> (Role, Vec<Mess
 pub fn process_msg(
     in_msg: Message,
     node: &mut Node,
-    mut idler: Idler,
+    idler: Idler,
     _: &mut RngCore,
 ) -> (Role, Vec<Message>) {
     use Message::*;
@@ -22,23 +23,21 @@ pub fn process_msg(
                 return (idler.into(), vec![]);
             }
 
-            follow_leader(node, heartbeat)
+            let result = follow_leader(node, heartbeat);
+            println!("{} IDLER became FOLLOWER", node.log_prefix());
+            result
         }
         Candidacy(candidacy) => {
             if candidacy.term < node.term {
                 return (idler.into(), vec![]);
             }
 
+            // FIXME: Now actions are deduped, I think it'd be better to have a
+            // dedicated Voter role to indicate when a vote has been cast.
             if idler.vote.is_none() {
-                node.term = candidacy.term;
-                node.last_activity = node.time;
-                idler.vote = Some(candidacy.candidate_id.clone());
-                let out_msg = message::Vote {
-                    voter_id: node.id.clone(),
-                    term: node.term,
-                    candidate: candidacy.candidate_id,
-                }.into();
-                return (idler.into(), vec![out_msg]);
+                let result = vote_for_later_candidate(node, candidacy.clone());
+                println!("{} IDLER became IDLER", node.log_prefix());
+                return result;
             }
 
             (idler.into(), vec![])

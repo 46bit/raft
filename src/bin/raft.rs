@@ -5,9 +5,9 @@ extern crate rand;
 
 use raft::*;
 use rand::Rng;
+use std::collections::HashSet;
 use std::thread;
 use std::time::Duration;
-use std::collections::HashSet;
 
 fn id(i: u64) -> Id {
     format!("node.{}", i)

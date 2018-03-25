@@ -1,7 +1,7 @@
 mod actions;
-mod idler;
-mod follower;
 mod candidate;
+mod follower;
+mod idler;
 mod leader;
 
 use self::actions::*;

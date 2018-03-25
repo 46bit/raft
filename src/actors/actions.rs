@@ -7,6 +7,7 @@ pub fn poll_election_timeout(
 ) -> Option<(Role, Vec<Message>)> {
     let election_timeout = rng.gen_range(ELECTION_TIMEOUT, ELECTION_TIMEOUT * 2);
     if node.time > node.last_activity + election_timeout {
+        println!("{} hit election timeout", node.log_prefix());
         node.term += 1;
         node.last_activity = node.time;
         let candidate = Candidate { votes: 1 };
@@ -24,6 +25,11 @@ pub fn vote_for_later_candidate(
     node: &mut Node,
     candidacy: message::Candidacy,
 ) -> (Role, Vec<Message>) {
+    println!(
+        "{} voted for candidate {}",
+        node.log_prefix(),
+        candidacy.candidate_id
+    );
     node.term = candidacy.term;
     node.last_activity = node.time;
     let idler = Idler {
@@ -38,6 +44,11 @@ pub fn vote_for_later_candidate(
 }
 
 pub fn follow_leader(node: &mut Node, heartbeat: message::Heartbeat) -> (Role, Vec<Message>) {
+    println!(
+        "{} heartbeated by newer-term leader {}",
+        node.log_prefix(),
+        heartbeat.leader_id
+    );
     node.term = heartbeat.term;
     node.last_activity = node.time;
     let follower = Follower {
