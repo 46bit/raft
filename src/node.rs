@@ -1,11 +1,13 @@
 use super::*;
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node {
     pub id: Id,
     pub time: Time,
+    pub last_activity: Time,
     pub term: Term,
-    pub peers: Vec<Id>,
+    pub peers: HashSet<Id>,
 }
 
 impl Node {
@@ -16,21 +18,20 @@ impl Node {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Role {
+    Idler(Idler),
     Follower(Follower),
     Candidate(Candidate),
     Leader(Leader),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Follower {
-    pub last_recv_heartbeat: Time,
-    pub voted: Option<Id>,
+pub struct Idler {
+    pub vote: Option<Id>,
 }
 
-impl Follower {
-    pub fn into_role(self) -> Role {
-        Role::Follower(self)
-    }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Follower {
+    pub leader_id: Id,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,19 +39,5 @@ pub struct Candidate {
     pub votes: u64,
 }
 
-impl Candidate {
-    pub fn into_role(self) -> Role {
-        Role::Candidate(self)
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Leader {
-    pub last_sent_heartbeat: Time,
-}
-
-impl Leader {
-    pub fn into_role(self) -> Role {
-        Role::Leader(self)
-    }
-}
+pub struct Leader {}

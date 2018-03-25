@@ -5,11 +5,11 @@ extern crate rand;
 mod node;
 pub use node::*;
 pub mod message;
-pub use message::{Message, MessageQueue};
+pub use message::Message;
 mod actors;
 pub use actors::*;
 
-pub type Id = u64;
+pub type Id = String;
 
 pub type Time = u64;
 

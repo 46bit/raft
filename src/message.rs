@@ -1,9 +1,5 @@
 use super::*;
-use std::collections::VecDeque;
-
-pub type MessageIterator = Iterator<Item = Message>;
-
-pub type MessageQueue = VecDeque<Message>;
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Message {
@@ -15,7 +11,7 @@ pub enum Message {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Heartbeat {
     pub term: Term,
-    pub nodes: Vec<Id>,
+    pub nodes: HashSet<Id>,
 }
 
 impl Heartbeat {

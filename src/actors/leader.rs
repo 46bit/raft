@@ -1,60 +1,42 @@
 use super::*;
 use rand::RngCore;
 
-pub fn poll(
-    node: &mut Node,
-    mut leader: Leader,
-    _: &mut RngCore,
-) -> Result<(Role, Vec<Message>), Error> {
-    let time_for_heartbeat = node.time >= leader.last_sent_heartbeat + HEARTBEAT_PERIOD;
+pub fn poll(node: &mut Node, leader: Leader, _: &mut RngCore) -> (Role, Vec<Message>) {
+    let time_for_heartbeat = node.time >= node.last_activity + HEARTBEAT_PERIOD;
     if time_for_heartbeat {
-        leader.last_sent_heartbeat = node.time;
-        println!("{} leader sent heartbeat", node.log_prefix(),);
+        node.last_activity = node.time;
         let msg = message::Heartbeat {
             term: node.term,
             nodes: node.peers.clone(),
-        }.into_message(node.id);
-        Ok((leader.into_role(), vec![msg]))
-    } else {
-        Ok((leader.into_role(), vec![]))
+        }.into_message(node.id.clone());
+        return (Role::Leader(leader), vec![msg]);
     }
+
+    (Role::Leader(leader), vec![])
 }
 
 pub fn process_msg(
     msg: Message,
     node: &mut Node,
-    mut leader: Leader,
+    leader: Leader,
     _: &mut RngCore,
-) -> Result<(Role, Vec<Message>), Error> {
+) -> (Role, Vec<Message>) {
     use Message::*;
     match msg {
-        Heartbeat(other_leader_id, heartbeat) => {
-            let other_leader_is_later_term = heartbeat.term > node.term;
-            if other_leader_is_later_term {
-                println!(
-                    "{} leader followed later-term leader {}",
-                    node.log_prefix(),
-                    other_leader_id,
-                );
-                let follower = Follower {
-                    last_recv_heartbeat: node.time,
-                    voted: None,
-                };
-                return Ok((follower.into_role(), vec![]));
+        Heartbeat(leader_id, heartbeat) => {
+            if heartbeat.term > node.term {
+                let follower = Follower { leader_id };
+                return (Role::Follower(follower), vec![]);
             }
-            let leader_is_duplicate = heartbeat.term == node.term;
-            if leader_is_duplicate {
-                println!(
-                    "{} leader became next-term candidate because of same-term leader {}",
-                    node.log_prefix(),
-                    other_leader_id,
-                );
+
+            if heartbeat.term == node.term && node.id != leader_id {
                 let candidate = Candidate { votes: 1 };
-                let msg = message::Candidacy { term: node.term }.into_message(node.id);
-                return Ok((candidate.into_role(), vec![msg]));
+                let msg = message::Candidacy { term: node.term }.into_message(node.id.clone());
+                return (Role::Candidate(candidate), vec![msg]);
             }
-            Ok((leader.into_role(), vec![]))
+
+            (Role::Leader(leader), vec![])
         }
-        Candidacy(_, _) | Vote(_, _) => Ok((leader.into_role(), vec![])),
+        Candidacy(_, _) | Vote(_, _) => (Role::Leader(leader), vec![]),
     }
 }
