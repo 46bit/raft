@@ -1,19 +1,12 @@
 use super::*;
-use rand::{Rng, RngCore};
+use rand::RngCore;
 
-pub fn poll(node: &mut Node, idler: Idler, mut rng: &mut RngCore) -> (Role, Vec<Message>) {
-    let election_timeout = rng.gen_range(ELECTION_TIMEOUT, ELECTION_TIMEOUT * 2);
-    if node.time < node.last_activity + election_timeout {
-        (idler.into(), vec![])
-    } else {
-        node.term += 1;
-        let candidate = Candidate { votes: 1 };
-        let out_msg = message::Candidacy {
-            candidate_id: node.id.clone(),
-            term: node.term,
-        }.into();
-        (candidate.into(), vec![out_msg])
+pub fn poll(node: &mut Node, idler: Idler, rng: &mut RngCore) -> (Role, Vec<Message>) {
+    if let Some(result) = poll_election_timeout(node, rng) {
+        return result;
     }
+
+    (idler.into(), vec![])
 }
 
 pub fn process_msg(
@@ -29,12 +22,7 @@ pub fn process_msg(
                 return (idler.into(), vec![]);
             }
 
-            node.term = heartbeat.term;
-            node.last_activity = node.time;
-            let follower = Follower {
-                leader_id: heartbeat.leader_id,
-            };
-            (follower.into(), vec![])
+            follow_leader(node, heartbeat)
         }
         Candidacy(candidacy) => {
             if candidacy.term < node.term {

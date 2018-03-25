@@ -1,7 +1,10 @@
+mod actions;
 mod idler;
 mod follower;
 mod candidate;
 mod leader;
+
+use self::actions::*;
 
 use super::*;
 use rand::RngCore;

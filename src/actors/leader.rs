@@ -26,17 +26,11 @@ pub fn process_msg(
     match msg {
         Heartbeat(heartbeat) => {
             if heartbeat.term > node.term {
-                node.term = heartbeat.term;
-                node.last_activity = node.time;
-                let follower = Follower {
-                    leader_id: heartbeat.leader_id,
-                };
-                return (follower.into(), vec![]);
+                return follow_leader(node, heartbeat);
             }
 
             if heartbeat.term == node.term && node.id != heartbeat.leader_id {
-                let idler = Idler { vote: None };
-                return (idler.into(), vec![]);
+                return go_into_idle();
             }
 
             (leader.into(), vec![])
