@@ -1,7 +1,7 @@
 use super::*;
-use rand::RngCore;
+use rand::{Rng, RngCore};
 
-pub fn poll(node: &mut Node, candidate: Candidate, _: &mut RngCore) -> (Role, Vec<Message>) {
+pub fn poll(node: &mut Node, candidate: Candidate, mut rng: &mut RngCore) -> (Role, Vec<Message>) {
     let necessary_votes = (node.peers.len() / 2) as u64;
     if candidate.votes > necessary_votes {
         node.last_activity = node.time;
@@ -12,6 +12,18 @@ pub fn poll(node: &mut Node, candidate: Candidate, _: &mut RngCore) -> (Role, Ve
             nodes: node.peers.clone(),
         }.into();
         return (leader.into(), vec![out_msg]);
+    }
+
+    let election_timeout = rng.gen_range(ELECTION_TIMEOUT, ELECTION_TIMEOUT * 2);
+    if node.time > node.last_activity + election_timeout {
+        node.term += 1;
+        node.last_activity = node.time;
+        let candidate = Candidate { votes: 1 };
+        let out_msg = message::Candidacy {
+            candidate_id: node.id.clone(),
+            term: node.term,
+        }.into();
+        return (candidate.into(), vec![out_msg]);
     }
 
     (candidate.into(), vec![])
