@@ -7,10 +7,10 @@ pub fn poll(node: &mut Node, follower: Follower, mut rng: &mut RngCore) -> (Role
         node.term += 1;
         let candidate = Candidate { votes: 1 };
         let out_msg = message::Candidacy { term: node.term }.into_message(node.id.clone());
-        return (Role::Candidate(candidate), vec![out_msg]);
+        return (candidate.into(), vec![out_msg]);
     }
 
-    (Role::Follower(follower), vec![])
+    (follower.into(), vec![])
 }
 
 pub fn process_msg(
@@ -23,27 +23,27 @@ pub fn process_msg(
     match in_msg {
         Heartbeat(heartbeat_leader_id, heartbeat) => {
             if heartbeat.term < node.term {
-                return (Role::Follower(follower), vec![]);
+                return (follower.into(), vec![]);
             }
 
             if node.term > heartbeat.term {
                 node.term = heartbeat.term;
                 node.last_activity = node.time;
                 follower.leader_id = heartbeat_leader_id;
-                return (Role::Follower(follower), vec![]);
+                return (follower.into(), vec![]);
             }
 
             if follower.leader_id == heartbeat_leader_id {
                 node.last_activity = node.time;
-                return (Role::Follower(follower), vec![]);
+                return (follower.into(), vec![]);
             }
 
             let idler = Idler { vote: None };
-            (Role::Idler(idler), vec![])
+            (idler.into(), vec![])
         }
         Candidacy(candidate_id, candidacy) => {
             if candidacy.term <= node.term {
-                return (Role::Follower(follower), vec![]);
+                return (follower.into(), vec![]);
             }
 
             node.term = candidacy.term;
@@ -54,8 +54,8 @@ pub fn process_msg(
                 term: node.term,
                 candidate: candidate_id,
             }.into_message(node.id.clone());
-            (Role::Idler(idler), vec![msg])
+            (idler.into(), vec![msg])
         }
-        Vote(..) => (Role::Follower(follower), vec![]),
+        Vote(..) => (follower.into(), vec![]),
     }
 }

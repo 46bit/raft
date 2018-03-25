@@ -9,10 +9,10 @@ pub fn poll(node: &mut Node, leader: Leader, _: &mut RngCore) -> (Role, Vec<Mess
             term: node.term,
             nodes: node.peers.clone(),
         }.into_message(node.id.clone());
-        return (Role::Leader(leader), vec![msg]);
+        return (leader.into(), vec![msg]);
     }
 
-    (Role::Leader(leader), vec![])
+    (leader.into(), vec![])
 }
 
 pub fn process_msg(
@@ -26,17 +26,17 @@ pub fn process_msg(
         Heartbeat(leader_id, heartbeat) => {
             if heartbeat.term > node.term {
                 let follower = Follower { leader_id };
-                return (Role::Follower(follower), vec![]);
+                return (follower.into(), vec![]);
             }
 
             if heartbeat.term == node.term && node.id != leader_id {
                 let candidate = Candidate { votes: 1 };
                 let msg = message::Candidacy { term: node.term }.into_message(node.id.clone());
-                return (Role::Candidate(candidate), vec![msg]);
+                return (candidate.into(), vec![msg]);
             }
 
-            (Role::Leader(leader), vec![])
+            (leader.into(), vec![])
         }
-        Candidacy(_, _) | Vote(_, _) => (Role::Leader(leader), vec![]),
+        Candidacy(_, _) | Vote(_, _) => (leader.into(), vec![]),
     }
 }

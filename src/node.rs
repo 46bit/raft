@@ -24,6 +24,30 @@ pub enum Role {
     Leader(Leader),
 }
 
+impl From<Idler> for Role {
+    fn from(idler: Idler) -> Role {
+        Role::Idler(idler)
+    }
+}
+
+impl From<Follower> for Role {
+    fn from(follower: Follower) -> Role {
+        Role::Follower(follower)
+    }
+}
+
+impl From<Candidate> for Role {
+    fn from(candidate: Candidate) -> Role {
+        Role::Candidate(candidate)
+    }
+}
+
+impl From<Leader> for Role {
+    fn from(leader: Leader) -> Role {
+        Role::Leader(leader)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Idler {
     pub vote: Option<Id>,

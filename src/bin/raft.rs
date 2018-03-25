@@ -22,7 +22,7 @@ fn new_actor(id: Id, peers: HashSet<Id>) -> Actor {
             term: 0,
             peers: peers,
         },
-        Role::Idler(Idler { vote: None }),
+        Idler { vote: None }.into(),
     )
 }
 

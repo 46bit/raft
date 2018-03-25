@@ -6,10 +6,10 @@ pub fn poll(node: &mut Node, candidate: Candidate, _: &mut RngCore) -> (Role, Ve
     if candidate.votes > necessary_votes {
         let leader = Leader {};
         // FIXME: Send heartbeat (node.last_activity hasn't been reset)
-        return (Role::Leader(leader), vec![]);
+        return (leader.into(), vec![]);
     }
 
-    (Role::Candidate(candidate), vec![])
+    (candidate.into(), vec![])
 }
 
 pub fn process_msg(
@@ -23,10 +23,10 @@ pub fn process_msg(
         Heartbeat(leader_id, heartbeat) => {
             if heartbeat.term >= node.term {
                 let follower = Follower { leader_id };
-                return (Role::Follower(follower), vec![]);
+                return (follower.into(), vec![]);
             }
 
-            (Role::Candidate(candidate), vec![])
+            (candidate.into(), vec![])
         }
         Candidacy(other_candidate_id, candidacy) => {
             let other_candidate_is_later_term = candidacy.term > node.term;
@@ -39,17 +39,17 @@ pub fn process_msg(
                     term: candidacy.term,
                     candidate: other_candidate_id,
                 }.into_message(node.id.clone());
-                return (Role::Idler(idler), vec![msg]);
+                return (idler.into(), vec![msg]);
             }
 
-            (Role::Candidate(candidate), vec![])
+            (candidate.into(), vec![])
         }
         Vote(_, vote) => {
             let was_voted_for = (vote.term, vote.candidate) == (node.term, node.id.clone());
             if was_voted_for {
                 candidate.votes += 1;
             }
-            (Role::Candidate(candidate), vec![])
+            (candidate.into(), vec![])
         }
     }
 }
