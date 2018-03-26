@@ -12,7 +12,9 @@ pub fn poll(node: &mut Node, candidate: Candidate, rng: &mut RngCore) -> (Role, 
             candidate.votes,
             node.peers.len()
         ));
-        return heartbeat(node, leader);
+        let result = heartbeat(node, leader);
+        node.log("LEADER heartbeated (immediately on becoming leader)");
+        return result;
     }
 
     if let Some(result) = poll_election_timeout(node, rng) {
