@@ -22,7 +22,7 @@ fn new_actor(id: Id, peers: HashSet<Id>) -> Actor {
             term: 0,
             peers,
         },
-        Idler { vote: None }.into(),
+        Role::Idler,
     )
 }
 
@@ -57,5 +57,6 @@ fn main() {
             actors[l] = new_actor(id(l as u64), node_ids.clone());
             println!("into {:?}", actors[l]);
         }
+        println!("---");
     }
 }

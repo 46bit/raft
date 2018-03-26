@@ -4,14 +4,9 @@ use rand::RngCore;
 pub fn poll(node: &mut Node, leader: Leader, _: &mut RngCore) -> (Role, Vec<Message>) {
     let time_for_heartbeat = node.time >= node.last_activity + HEARTBEAT_PERIOD;
     if time_for_heartbeat {
-        // FIXME: Log?
-        node.last_activity = node.time;
-        let out_msg = message::Heartbeat {
-            leader_id: node.id.clone(),
-            term: node.term,
-            nodes: node.peers.clone(),
-        }.into();
-        return (leader.into(), vec![out_msg]);
+        let result = heartbeat(node, leader);
+        node.log("LEADER heartbeated (reached heartbeat period)");
+        return result;
     }
 
     (leader.into(), vec![])
@@ -27,18 +22,17 @@ pub fn process_msg(
     match msg {
         Heartbeat(heartbeat) => {
             if heartbeat.term > node.term {
-                // FIXME: Log
-                return follow_leader(node, heartbeat);
+                let result = follower_of(node, heartbeat.clone());
+                node.log(&format!(
+                    "LEADER became FOLLOWER of {:?} (received later-term heartbeat)",
+                    heartbeat.leader_id
+                ));
+                return result;
             }
 
             if heartbeat.term == node.term && node.id != heartbeat.leader_id {
-                println!(
-                    "{} LEADER heartbeated by same-term leader {}",
-                    node.log_prefix(),
-                    node.id,
-                );
-                println!("{} LEADER became IDLER", node.log_prefix());
-                return go_into_idle();
+                node.log("LEADER became IDLER (received duplicate-term heartbeat)");
+                return (Role::Idler, vec![]);
             }
 
             (leader.into(), vec![])

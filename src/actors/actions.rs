@@ -21,10 +21,7 @@ pub fn poll_election_timeout(
     None
 }
 
-pub fn vote_for_later_candidate(
-    node: &mut Node,
-    candidacy: message::Candidacy,
-) -> (Role, Vec<Message>) {
+pub fn voter_for(node: &mut Node, candidacy: message::Candidacy) -> (Role, Vec<Message>) {
     println!(
         "{} voted for candidate {}",
         node.log_prefix(),
@@ -32,20 +29,20 @@ pub fn vote_for_later_candidate(
     );
     node.term = candidacy.term;
     node.last_activity = node.time;
-    let idler = Idler {
-        vote: Some(candidacy.candidate_id.clone()),
+    let voter = Voter {
+        candidate_id: candidacy.candidate_id.clone(),
     };
     let out_msg = message::Vote {
         voter_id: node.id.clone(),
         term: candidacy.term,
         candidate: candidacy.candidate_id,
     }.into();
-    (idler.into(), vec![out_msg])
+    (voter.into(), vec![out_msg])
 }
 
-pub fn follow_leader(node: &mut Node, heartbeat: message::Heartbeat) -> (Role, Vec<Message>) {
+pub fn follower_of(node: &mut Node, heartbeat: message::Heartbeat) -> (Role, Vec<Message>) {
     println!(
-        "{} heartbeated by newer-term leader {}",
+        "{} heartbeated by leader {}",
         node.log_prefix(),
         heartbeat.leader_id
     );
@@ -57,7 +54,13 @@ pub fn follow_leader(node: &mut Node, heartbeat: message::Heartbeat) -> (Role, V
     (follower.into(), vec![])
 }
 
-pub fn go_into_idle() -> (Role, Vec<Message>) {
-    let idler = Idler { vote: None };
-    (idler.into(), vec![])
+pub fn heartbeat(node: &mut Node, leader: Leader) -> (Role, Vec<Message>) {
+    println!("{} heartbeating", node.log_prefix());
+    node.last_activity = node.time;
+    let out_msg = message::Heartbeat {
+        leader_id: node.id.clone(),
+        term: node.term,
+        nodes: node.peers.clone(),
+    }.into();
+    (leader.into(), vec![out_msg])
 }

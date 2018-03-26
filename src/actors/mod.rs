@@ -3,6 +3,7 @@ mod candidate;
 mod follower;
 mod idler;
 mod leader;
+mod voter;
 
 use self::actions::*;
 
@@ -41,7 +42,8 @@ impl Actor {
         let in_msgs: Vec<_> = self.inbox.drain(..).collect();
         for in_msg in in_msgs {
             let (new_role, out_msgs) = match self.role.clone() {
-                Role::Idler(idler_) => idler::process_msg(in_msg, &mut self.node, idler_, rng),
+                Role::Idler => idler::process_msg(in_msg, &mut self.node, rng),
+                Role::Voter(voter_) => voter::process_msg(in_msg, &mut self.node, voter_, rng),
                 Role::Follower(follower_) => {
                     follower::process_msg(in_msg, &mut self.node, follower_, rng)
                 }
@@ -55,7 +57,8 @@ impl Actor {
         }
 
         let (new_role, out_msgs) = match self.role.clone() {
-            Role::Idler(idler_) => idler::poll(&mut self.node, idler_, rng),
+            Role::Idler => idler::poll(&mut self.node, rng),
+            Role::Voter(voter_) => voter::poll(&mut self.node, voter_, rng),
             Role::Follower(follower_) => follower::poll(&mut self.node, follower_, rng),
             Role::Candidate(candidate_) => candidate::poll(&mut self.node, candidate_, rng),
             Role::Leader(leader_) => leader::poll(&mut self.node, leader_, rng),

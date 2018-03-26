@@ -4,26 +4,19 @@ use rand::RngCore;
 pub fn poll(node: &mut Node, candidate: Candidate, rng: &mut RngCore) -> (Role, Vec<Message>) {
     let necessary_votes = (node.peers.len() / 2) as u64;
     if candidate.votes > necessary_votes {
-        println!(
-            "{} has sufficient (>{}) votes ({}/{}) votes to win election",
-            node.log_prefix(),
+        let leader = Leader {};
+        node.last_activity = node.time;
+        node.log(&format!(
+            "CANDIDATE became LEADER (received >{} votes: {}/{})",
             necessary_votes,
             candidate.votes,
             node.peers.len()
-        );
-        node.last_activity = node.time;
-        let leader = Leader {};
-        let out_msg = message::Heartbeat {
-            leader_id: node.id.clone(),
-            term: node.term,
-            nodes: node.peers.clone(),
-        }.into();
-        println!("{} CANDIDATE became LEADER", node.log_prefix());
-        return (leader.into(), vec![out_msg]);
+        ));
+        return heartbeat(node, leader);
     }
 
     if let Some(result) = poll_election_timeout(node, rng) {
-        println!("{} CANDIDATE became CANDIDATE", node.log_prefix());
+        node.log("CANDIDATE became CANDIDATE (election timeout)");
         return result;
     }
 
@@ -43,24 +36,33 @@ pub fn process_msg(
                 return (candidate.into(), vec![]);
             }
 
-            // FIXME: Log
-            follow_leader(node, heartbeat)
+            let result = follower_of(node, heartbeat.clone());
+            node.log(&format!(
+                "CANDIDATE became FOLLOWER (heartbeat from {:?})",
+                heartbeat.leader_id
+            ));
+            result
         }
         Candidacy(candidacy) => {
             if candidacy.term <= node.term {
                 return (candidate.into(), vec![]);
             }
 
-            // FIXME: Log
-            vote_for_later_candidate(node, candidacy)
+            let result = voter_for(node, candidacy.clone());
+            node.log(&format!(
+                "CANDIDATE became VOTER (later-term candidacy of {:?})",
+                candidacy.candidate_id
+            ));
+            result
         }
         Vote(vote) => {
             let was_voted_for = (vote.term, vote.candidate) == (node.term, node.id.clone());
             if was_voted_for {
-                // FIXME: Log
                 // FIXME: Should the candidate consider a vote for itself as activity?
                 candidate.votes += 1;
+                node.log(&format!("CANDIDATE received vote from {:?}", vote.voter_id));
             }
+            // FIXME: Should a later-term vote really be ignored?
             (candidate.into(), vec![])
         }
     }

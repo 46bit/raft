@@ -3,6 +3,7 @@ use rand::RngCore;
 
 pub fn poll(node: &mut Node, follower: Follower, rng: &mut RngCore) -> (Role, Vec<Message>) {
     if let Some(result) = poll_election_timeout(node, rng) {
+        node.log("FOLLOWER became CANDIDATE (election timeout)");
         return result;
     }
 
@@ -18,29 +19,32 @@ pub fn process_msg(
     use Message::*;
     match in_msg {
         Heartbeat(heartbeat) => {
-            if node.term > heartbeat.term {
+            if heartbeat.term < node.term {
                 return (follower.into(), vec![]);
             }
 
-            if node.term < heartbeat.term {
-                let result = follow_leader(node, heartbeat);
-                println!("{} FOLLOWER became FOLLOWER", node.log_prefix());
+            if heartbeat.term > node.term {
+                let result = follower_of(node, heartbeat.clone());
+                node.log(&format!(
+                    "FOLLOWER became FOLLOWER of {:?} (received later-term heartbeat)",
+                    heartbeat.leader_id
+                ));
                 return result;
             }
 
-            if follower.leader_id != heartbeat.leader_id {
-                println!(
-                    "{} FOLLOWER of {} heartbeated by same-term leader {}",
-                    node.log_prefix(),
-                    follower.leader_id,
-                    heartbeat.leader_id
-                );
-                println!("{} FOLLOWER became IDLER", node.log_prefix());
-                return go_into_idle();
+            if heartbeat.leader_id != follower.leader_id {
+                node.log(&format!(
+                    "FOLLOWER became IDLER (heartbeat from {:?} conflicts with leader {:?})",
+                    heartbeat.leader_id, follower.leader_id,
+                ));
+                return (Role::Idler, vec![]);
             }
 
-            // FIXME: Log?
             node.last_activity = node.time;
+            node.log(&format!(
+                "FOLLOWER heartbeated by its leader {:?}",
+                follower.leader_id,
+            ));
             (follower.into(), vec![])
         }
         Candidacy(candidacy) => {
@@ -48,8 +52,12 @@ pub fn process_msg(
                 return (follower.into(), vec![]);
             }
 
-            // FIXME: Log
-            vote_for_later_candidate(node, candidacy)
+            let result = voter_for(node, candidacy.clone());
+            node.log(&format!(
+                "FOLLOWER became VOTER for {:?} (received candidacy)",
+                candidacy.candidate_id,
+            ));
+            result
         }
         Vote(..) => (follower.into(), vec![]),
     }

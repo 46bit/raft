@@ -11,22 +11,30 @@ pub struct Node {
 }
 
 impl Node {
+    pub fn log(&self, msg: &str) {
+        println!("{} {}", self.log_prefix(), msg);
+    }
+
     pub fn log_prefix(&self) -> String {
-        format!("[time {}] [id {}] [term {}]", self.time, self.id, self.term)
+        format!(
+            "[time {}] [id {:?}] [term {}]",
+            self.time, self.id, self.term
+        )
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Role {
-    Idler(Idler),
+    Idler,
+    Voter(Voter),
     Follower(Follower),
     Candidate(Candidate),
     Leader(Leader),
 }
 
-impl From<Idler> for Role {
-    fn from(idler: Idler) -> Role {
-        Role::Idler(idler)
+impl From<Voter> for Role {
+    fn from(voter: Voter) -> Role {
+        Role::Voter(voter)
     }
 }
 
@@ -49,8 +57,8 @@ impl From<Leader> for Role {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Idler {
-    pub vote: Option<Id>,
+pub struct Voter {
+    pub candidate_id: Id,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
